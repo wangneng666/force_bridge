@@ -1,0 +1,6 @@
+float32 MaxDistance
+float32 MinDistance
+int32 countTime
+---
+bool is_success
+string info

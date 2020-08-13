@@ -3,15 +3,15 @@
 
 int main(int argc, char *argv[])
 {
+
     ros::init(argc, argv, "force_bridge");
     ros::NodeHandle n;
-    ros::AsyncSpinner as(4);
+    ros::AsyncSpinner as(2);
     as.start();
 
-    forceService fb(n);
-    if(fb.start()!=0){
-        return -1;
-    }
+    forceService fb(&n);
+    fb.start();
+
     ros::waitForShutdown();
     return 0;
 }

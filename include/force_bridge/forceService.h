@@ -6,8 +6,8 @@
 #include "ros/ros.h"
 #include "force/forcePluginAggre.h"
 #include "matrixUtily.h"
-
-#include <moveit/move_group_interface/move_group.h>
+#include "moveit/move_group_interface/move_group_interface.h"
+//#include <moveit/move_group_interface/move_group.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
@@ -38,7 +38,7 @@ struct MoveGroup{
 
 class forceService {
 public:
-    explicit forceService(ros::NodeHandle n);
+    explicit forceService(ros::NodeHandle* n);
     ~forceService();
     int start();
 
@@ -46,21 +46,24 @@ private:
     forcePluginAggre *force_plugin;
     MoveGroup MG;
 
+    bool isSim ;
+    bool is_stop ;
+    bool is_running ;
     vector<double> currentForce, bias_force;
-    vector<double> startPos;
+
+//    vector<double> startPos;
     double SA, SB, SC;
-    bool isSim;
     bool XZReverseDirect;
     geometry_msgs::Pose SPose;
     atomic<bool> getForce,startPosOK ,robotStartStatus,robot_servo_status,ready_exit;
     //ros变量
-    ros::NodeHandle Node;
+    ros::NodeHandle* Node;
     ros::Publisher  impenderrResult, joint_state_pub;
     ros::ServiceServer impedenceStart_server;
     ros::Subscriber ready_stop_sub, start_pos_sub, force_sub, robot_status_sub;
 //    ros::ServiceServer serverControl;
 
-private:
+public:
 
     /***
      * 阻抗控制启动－－回调函数
@@ -70,9 +73,9 @@ private:
      */
     bool impedanceStartCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     /***
-     * 初始化力控参数
+     * 初始化参数
      */
-    void initParam();
+    int initParam();
 
     /***
      * 开启阻抗控制
@@ -113,28 +116,17 @@ private:
     //运动学模型加载初始化
     bool initKinematic();
 
-    bool prepareImpedance();
+    void forceCallbackZX(const geometry_msgs::Wrench::ConstPtr& msg);
 
-    int  blockLoop();
+    void forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr& msg);
 
-    void initRosTopic();
+    void publishPose(std::vector<double> &joint_Pose);
 
-    void initRosServer();
+    void getCurrentPose(geometry_msgs::Pose& Pose);
 
-    void publishStartPose(std::vector<double> &robotStartPose);
-
-    void initRobotMoveitPose(const std::vector<double> &robotStartPose);
-
-    void foruceCallbackZX(const geometry_msgs::Wrench::ConstPtr& msg);
-
-    void foruceCallbackXZ(const geometry_msgs::Wrench::ConstPtr& msg);
-
-    bool computeImpedance( std::vector<double> &force , std::vector<double> &outJoint, std::vector<double> &outPos);
+    int computeImpedence( std::vector<double> &force , std::vector<double> &outJoint);
 
     void robotStausCallback(const industrial_msgs::RobotStatusConstPtr& msg);
-
-
-
 };
 
 
