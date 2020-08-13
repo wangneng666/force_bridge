@@ -35,11 +35,10 @@ int forceService::initParam() {
     ROS_INFO_STREAM("isSim "<<isSim);
     ROS_INFO_STREAM("XZReverseDirect: "<<XZReverseDirect);
 
-    MG.groupName="arm";
-    MG.endlinkName="link6";
-    isSim=true;
-    XZReverseDirect=false;
-    system("rosrun joint_state_publisher joint_state_publisher &");
+//    MG.groupName="arm";
+//    MG.endlinkName="link6";
+//    isSim= false;
+//    XZReverseDirect=false;
     //阻抗插件初始化
     int ret = force_plugin->setForcePlugin("hsImpenderrForce", "1", "");
     cout<<force_plugin->getName()<<endl;
@@ -219,7 +218,7 @@ void forceService::getCurrentPose(geometry_msgs::Pose& Pose) {
     // 获取当前的末端姿态
     cout<<"w1"<<endl;
 //    vector<double> curPos = MG.move_group->getCurrentJointValues();
-//    cout<<"w2"<<endl;
+////    cout<<"w2"<<endl;
 //    MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, curPos);
     cout<<"w3  "<<endl;
     const Eigen::Affine3d &end_effector_state =  MG.kinematic_state->getGlobalLinkTransform( MG.endlinkName);
