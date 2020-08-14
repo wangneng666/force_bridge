@@ -132,6 +132,8 @@ public:
 
     void publishPose(std::vector<double> &joint_Pose);
 
+    void publishOnceForRealRb(std::vector<double> &startPos);
+
     void getCurrentPose(geometry_msgs::Pose& Pose);
 
     int computeImpedence( std::vector<double> &force , std::vector<double> &outJoint,geometry_msgs::Pose &outPose);

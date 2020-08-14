@@ -77,9 +77,16 @@ int forceService::StartImpedenceCtl() {
     is_stop= false;
     //循环前发布一次起始关节角
     vector<double> startPos = MG.move_group->getCurrentJointValues();
-    publishPose(startPos);
-        MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, startPos);
-    while(ros::ok()&&(!is_stop))
+    if(isSim)
+    {
+        publishPose(startPos);
+    }
+    else
+    {
+        publishOnceForRealRb(startPos);
+    }
+    MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, startPos);
+    while(ros::ok()&&(!is_stop)&&(!ros::isShuttingDown()))
     {
         auto start = boost::chrono::system_clock::now();
         ROS_INFO_STREAM("---------1--------");
@@ -217,6 +224,19 @@ void forceService::robotStausCallback(const industrial_msgs::RobotStatusConstPtr
     }
 }
 
+void forceService::publishOnceForRealRb(std::vector<double> &startPos) {
+    startPos.push_back(0);
+    sensor_msgs::JointState sensor_compute_robot_state;
+    sensor_compute_robot_state.header.stamp = ros::Time::now();
+    sensor_compute_robot_state.name.resize(7);
+    sensor_compute_robot_state.position = startPos;
+    joint_state_pub.publish(sensor_compute_robot_state);
+    ROS_INFO_STREAM( "sensor_compute_robot_state size: " << sensor_compute_robot_state.position.size() );
+    matrixUtily::dumpDVec(sensor_compute_robot_state.position, 7,"sensor_compute_robot_state: ");
+    startPos.pop_back();
+
+}
+
 void forceService::publishPose(std::vector<double> &joint_Pose) {
     sensor_msgs::JointState compute_robot_state;
     compute_robot_state.header.stamp = ros::Time::now();
@@ -263,6 +283,7 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     cout<<"计算得偏移量X_offset: "<<Xa[0]<<endl;
     cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
     cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
+
     //4.位姿转关节角
     if(!MG.kinematic_state->setFromIK(MG.joint_model_group, computePose, MG.endlinkName, 10, 0.1)){
         ROS_ERROR( "IK ERR " );
@@ -272,7 +293,7 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     std::vector<double> joint_values;
     MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
     outJoint =  std::move(joint_values);
-
+    cout<<"ros_ok"<<"computeImpedence end"<<endl;
     return 0;
 }
 

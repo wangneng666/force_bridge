@@ -6,13 +6,14 @@ int main(int argc, char *argv[])
 
     ros::init(argc, argv, "force_bridge");
     ros::NodeHandle n;
-    ros::AsyncSpinner as(2);
+    ros::AsyncSpinner as(1);
     as.start();
 
     forceService fb(&n);
     fb.start();
-
-    ros::waitForShutdown();
+    ros::MultiThreadedSpinner spinner(1);
+    spinner.spin();
+//    ros::waitForShutdown();
     return 0;
 }
 
