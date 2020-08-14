@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     int RandomNumber;
     while(ros::ok()){
         srand((unsigned)time(NULL));//time()用系统时间初始化种。为rand()生成不同的随机种子。
-        RandomNumber = rand() % 10-10;
+        RandomNumber = rand() % 10-5;
         geometry_msgs::Wrench msg;
         msg.force.x=RandomNumber/100.0;
         msg.force.y=RandomNumber/100.0;
@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
         msg.torque.y=0.0;
         msg.torque.z=0.0;
         pub.publish(msg);
-//        cout<<RandomNumber<<endl;
+        cout<<RandomNumber<<endl;
         rate.sleep();
     }
     return 0;

@@ -51,27 +51,37 @@ private:
     bool is_running ;
     vector<double> currentForce, bias_force;
 
-//    vector<double> startPos;
-    double SA, SB, SC;
     bool XZReverseDirect;
     geometry_msgs::Pose SPose;
     atomic<bool> getForce,startPosOK ,robotStartStatus,robot_servo_status,ready_exit;
     //ros变量
     ros::NodeHandle* Node;
-    ros::Publisher  impenderrResult, joint_state_pub;
+    ros::Publisher  joint_state_pub ;
+    ros::Publisher Pose_state_pub;
     ros::ServiceServer impedenceStart_server;
+    ros::ServiceServer impedenceClose_server;
     ros::Subscriber ready_stop_sub, start_pos_sub, force_sub, robot_status_sub;
 //    ros::ServiceServer serverControl;
 
 public:
 
     /***
-     * 阻抗控制启动－－回调函数
+     * 阻抗控制启动服务
      * @param req
      * @param res
      * @return
      */
-    bool impedanceStartCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+    bool impedenceStartCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+
+    /***
+     * 阻抗控制关闭服务
+     * @param req
+     * @param res
+     * @return
+     */
+    bool impedenceCloseCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+
+
     /***
      * 初始化参数
      */
@@ -124,7 +134,7 @@ public:
 
     void getCurrentPose(geometry_msgs::Pose& Pose);
 
-    int computeImpedence( std::vector<double> &force , std::vector<double> &outJoint);
+    int computeImpedence( std::vector<double> &force , std::vector<double> &outJoint,geometry_msgs::Pose &outPose);
 
     void robotStausCallback(const industrial_msgs::RobotStatusConstPtr& msg);
 };

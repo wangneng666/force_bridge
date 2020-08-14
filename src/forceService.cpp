@@ -49,18 +49,21 @@ int forceService::initParam() {
     currentForce.resize(6);
     std::fill(currentForce.begin(), currentForce.begin()+6 ,0);
     //话题初始化
+    Pose_state_pub = Node->advertise<geometry_msgs::Pose>("force_bridge/robotPose", 1);
+
     if(isSim)
         joint_state_pub = Node->advertise<sensor_msgs::JointState>("joint_states", 1);
     else
         joint_state_pub = Node->advertise<sensor_msgs::JointState>("impedance_err", 1);
 
-    //根据随动方西选择数据
+    //根据随动方向选择数据
     if(!XZReverseDirect)
         force_sub = Node->subscribe("/daq_data", 1, &forceService::forceCallbackXZ, this);
     else
         force_sub = Node->subscribe("/daq_data", 1, &forceService::forceCallbackZX, this);
 
-    impedenceStart_server = Node->advertiseService("impedance_control", &forceService::impedanceStartCB,this);
+    impedenceStart_server = Node->advertiseService("force_bridge/impedenceStart", &forceService::impedenceStartCB,this);
+    impedenceClose_server = Node->advertiseService("force_bridge/impedenceClose", &forceService::impedenceCloseCB,this);
     ROS_INFO_STREAM("--------initParam over------------");
 
     return ret;
@@ -85,10 +88,14 @@ int forceService::StartImpedenceCtl() {
         std::fill(outJoint.begin(), outJoint.begin()+6, 0);
         ROS_INFO_STREAM("---------3--------");
         vector<double > tmp_force=currentForce;
-        if(computeImpedence(tmp_force, outJoint)!=0){
+        geometry_msgs::Pose outPose;
+        if(computeImpedence(tmp_force, outJoint,outPose)!=0){
             return -1;
         }
+        //发布位姿
+        Pose_state_pub.publish(outPose);
         ROS_INFO_STREAM("---------4--------");
+        //执行运动
         publishPose(outJoint);
         ROS_INFO_STREAM("---------5--------");
         boost::this_thread::sleep_until( start +boost::chrono::milliseconds(40));
@@ -124,6 +131,7 @@ int forceService::setForceInputTopic() {
 
 //设置阻抗控制的方向
 int forceService::setForceControlDirect() {
+
     return 0;
 }
 
@@ -153,15 +161,23 @@ bool forceService::initKinematic() {
     return true;
 }
 
-bool forceService::impedanceStartCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool forceService::impedenceStartCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
     if(StartImpedenceCtl()==0){
-        res.success = 0;
+        res.success = true;
     } else{
-        res.success = -1;
+        res.success = false;
     }
     return true;
 }
 
+bool forceService::impedenceCloseCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+    is_stop=true;
+    while (is_running){
+        sleep(1);
+    }
+    res.success = true;
+    return true;
+}
 
 void forceService::forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr &msg) {
     currentForce[0] = msg->force.x * 0.08 - bias_force[0];
@@ -216,9 +232,9 @@ void forceService::publishPose(std::vector<double> &joint_Pose) {
 
 void forceService::getCurrentPose(geometry_msgs::Pose& Pose) {
     // 获取当前的末端姿态
-    cout<<"w1"<<endl;
+//    cout<<"w1"<<endl;
 //    vector<double> curPos = MG.move_group->getCurrentJointValues();
-////    cout<<"w2"<<endl;
+//    cout<<"w2"<<endl;
 //    MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, curPos);
     cout<<"w3  "<<endl;
     const Eigen::Affine3d &end_effector_state =  MG.kinematic_state->getGlobalLinkTransform( MG.endlinkName);
@@ -226,10 +242,11 @@ void forceService::getCurrentPose(geometry_msgs::Pose& Pose) {
     tf::poseEigenToMsg(end_effector_state, Pose);
 }
 
-int forceService::computeImpedence(std::vector<double> &force, std::vector<double> &outJoint) {
+int forceService::computeImpedence(std::vector<double> &force, std::vector<double> &outJoint,geometry_msgs::Pose &outPose) {
     //1.获取当前位姿
     geometry_msgs::Pose current_Pose;
     getCurrentPose(current_Pose);
+    outPose=current_Pose;
     //2.阻抗运算
     std::vector<double> Xa(6);
     std::fill(Xa.begin(), Xa.begin()+6, 0);
@@ -258,4 +275,6 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
 
     return 0;
 }
+
+
 
