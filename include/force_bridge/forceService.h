@@ -55,20 +55,17 @@ private:
 
     bool is_stop ;
     bool is_running ;
-//    atomic<vector<double >> currentForce,bias_force;
     vector<double > currentForce,bias_force;
     vector<double > yamlParameter_forceScale;
     vector<bool > yamlParameter_forceDrection;
-
-    atomic<bool> getForce ,flag_SetForceBias, robotStartStatus,robot_servo_status,ready_exit;
+    atomic<bool> flag_SetForceBias,robot_servo_status;
     //ros变量
     ros::NodeHandle* Node;
     ros::Publisher  joint_state_pub ;
     ros::Publisher Pose_state_pub;
     ros::ServiceServer impedenceStart_server;
     ros::ServiceServer impedenceClose_server;
-    ros::Subscriber ready_stop_sub, start_pos_sub, force_sub, robot_status_sub;
-//    ros::ServiceServer serverControl;
+    ros::Subscriber   force_sub, robot_status_sub;
 
 public:
 
@@ -135,18 +132,24 @@ public:
     //运动学模型加载初始化
     bool initKinematic();
 
+    //接收传感器数据
     void forceCallbackZX(const geometry_msgs::Wrench::ConstPtr& msg);
 
     void forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr& msg);
 
+    //发布关节坐标执行运动
     void publishPose(std::vector<double> &joint_Pose);
 
+    //初始位姿发布
     void publishOnceForRealRb(std::vector<double> &startPos);
 
+    //获取当前位姿
     void getCurrentPose(geometry_msgs::Pose& Pose);
 
+    //阻抗计算
     int computeImpedence( std::vector<double> &force , std::vector<double> &outJoint,geometry_msgs::Pose &outPose);
 
+    //接收机器人状态
     void robotStausCallback(const industrial_msgs::RobotStatusConstPtr& msg);
 };
 

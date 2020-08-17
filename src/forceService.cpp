@@ -56,6 +56,7 @@ int forceService::initParam() {
     std::fill(currentForce.begin(), currentForce.begin()+6 ,0);
     //话题初始化
     Pose_state_pub = Node->advertise<geometry_msgs::Pose>("force_bridge/robotPose", 1);
+    robot_status_sub=Node->subscribe<industrial_msgs::RobotStatus>("robot_status",1,boost::bind(&forceService::robotStausCallback,this,_1));
 
     if(isSim)
         joint_state_pub = Node->advertise<sensor_msgs::JointState>("joint_states", 1);
@@ -91,7 +92,7 @@ int forceService::StartImpedenceCtl() {
     {
         publishOnceForRealRb(startPos);//使用“impedance_err”接口驱动真机，第一次发送数据格式不同，必须要发。
     }
-    while(ros::ok()&&(!is_stop)&&(!ros::isShuttingDown()))
+    while(ros::ok()&&(!is_stop)&&(!ros::isShuttingDown())&&(robot_servo_status))
     {
         auto start = boost::chrono::system_clock::now();
 
@@ -212,7 +213,7 @@ void forceService::forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr &msg) {
     currentForce[2] = -msg->force.z * yamlParameter_forceScale[2];
     currentForce[3] = 0;
     currentForce[4] = 0;
-    currentForce[5] = 0;msg->torque.x
+    currentForce[5] = 0;
 }
 
 void forceService::forceCallbackZX(const geometry_msgs::Wrench_<allocator<void>>::ConstPtr &msg) {
@@ -231,9 +232,8 @@ void forceService::robotStausCallback(const industrial_msgs::RobotStatusConstPtr
     if(msg->in_error.val != 0 || msg->drives_powered.val!=1 ){
         robot_servo_status = false;
         std::cout << "msg->in_motion.val : "<< std::to_string(msg->in_motion.val) << " msg->in_error.val: "<<  std::to_string(msg->in_error.val)<<std::endl;
-    }else if( msg->in_error.val  == 0 && robotStartStatus == false ){
+    }else {
         robot_servo_status = true;
-        robotStartStatus = true;
     }
 }
 
@@ -330,6 +330,4 @@ void forceService::forceDataDeal(const vector<double >& original_force,vector<do
     }
     deal_force=tmp_deal_force;
 }
-
-
 
