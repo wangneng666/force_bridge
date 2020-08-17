@@ -45,6 +45,7 @@ target_link_libraries(force_bridge
     hirop_force
     hsImpenderrForce
     dl
+    yaml-cpp
    ${catkin_LIBRARIES}
  )
 
@@ -53,7 +54,7 @@ add_executable(shakeHandJudge src/shakeHandJudge.cpp)
 target_link_libraries(shakeHandJudge ${catkin_LIBRARIES})
 
 add_executable(node_daq src/node_daq.cpp)
-target_link_libraries(node_daq ${catkin_LIBRARIES})
+target_link_libraries(node_daq ${catkin_LIBRARIES}   yaml-cpp)
 
 add_executable(motionCoorControl src/motionCoorControl.cpp)
 target_link_libraries(motionCoorControl ${catkin_LIBRARIES})

@@ -13,7 +13,6 @@ int main(int argc, char *argv[])
     fb.start();
     ros::MultiThreadedSpinner spinner(1);
     spinner.spin();
-//    ros::waitForShutdown();
     return 0;
 }
 

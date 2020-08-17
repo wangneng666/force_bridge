@@ -26,6 +26,7 @@ int forceService::start() {
 
 //初始化参数
 int forceService::initParam() {
+    int ret=0;
     Node->getParam("/force_bridge/group_name",MG.groupName);
     Node->getParam("/force_bridge/endlinkName",MG.endlinkName);
     Node->getParam("/force_bridge/isSim",isSim);
@@ -34,16 +35,21 @@ int forceService::initParam() {
     ROS_INFO_STREAM("endlinkName "<<MG.endlinkName);
     ROS_INFO_STREAM("isSim "<<isSim);
     ROS_INFO_STREAM("XZReverseDirect: "<<XZReverseDirect);
-
+    if(readLocalParam()!=0){
+        return -1;
+    }
 //    MG.groupName="arm";
 //    MG.endlinkName="link6";
 //    isSim= false;
 //    XZReverseDirect=false;
     //阻抗插件初始化
-    int ret = force_plugin->setForcePlugin("hsImpenderrForce", "1", "");
+    if(force_plugin->setForcePlugin("hsImpenderrForce", "1", "")!=0){
+        return -2;
+    }
     cout<<force_plugin->getName()<<endl;
 
     //变量初始化
+    flag_SetForceBias= false;
     bias_force.resize(6);
     std::fill(bias_force.begin(), bias_force.begin()+6 ,0);
     currentForce.resize(6);
@@ -56,7 +62,6 @@ int forceService::initParam() {
     else
         joint_state_pub = Node->advertise<sensor_msgs::JointState>("impedance_err", 1);
 
-    //根据随动方向选择数据
     if(!XZReverseDirect)
         force_sub = Node->subscribe("/daq_data", 1, &forceService::forceCallbackXZ, this);
     else
@@ -77,34 +82,33 @@ int forceService::StartImpedenceCtl() {
     is_stop= false;
     //循环前发布一次起始关节角
     vector<double> startPos = MG.move_group->getCurrentJointValues();
+    MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, startPos);
     if(isSim)
     {
         publishPose(startPos);
     }
     else
     {
-        publishOnceForRealRb(startPos);
+        publishOnceForRealRb(startPos);//使用“impedance_err”接口驱动真机，第一次发送数据格式不同，必须要发。
     }
-    MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, startPos);
     while(ros::ok()&&(!is_stop)&&(!ros::isShuttingDown()))
     {
         auto start = boost::chrono::system_clock::now();
-        ROS_INFO_STREAM("---------1--------");
-        std::vector<double> outJoint(6);
-        ROS_INFO_STREAM("---------2--------");
-        std::fill(outJoint.begin(), outJoint.begin()+6, 0);
-        ROS_INFO_STREAM("---------3--------");
-        vector<double > tmp_force=currentForce;
+
+        vector<double > copy_currentForce=currentForce;
+        vector<double > out_dealForce;
+        forceDataDeal(copy_currentForce,out_dealForce);
+
+        std::vector<double> outJoint;
         geometry_msgs::Pose outPose;
-        if(computeImpedence(tmp_force, outJoint,outPose)!=0){
-            return -1;
+        if(computeImpedence(out_dealForce, outJoint,outPose)!=0){
+            continue;
+//            return -1;
         }
         //发布位姿
         Pose_state_pub.publish(outPose);
-        ROS_INFO_STREAM("---------4--------");
         //执行运动
         publishPose(outJoint);
-        ROS_INFO_STREAM("---------5--------");
         boost::this_thread::sleep_until( start +boost::chrono::milliseconds(40));
         ROS_INFO_STREAM("<---------------------------------------------------->");
     }
@@ -115,14 +119,30 @@ int forceService::StartImpedenceCtl() {
 //停止阻抗控制
 int forceService::StopImpedenceCtl() {
     is_stop=true;
-    while (is_running){
+    int time_count=0;
+    while (is_running&&(time_count<10)){
         sleep(1);
+        time_count++;
+
     }
     return 0;
 }
 
 //读取本地参数
 int forceService::readLocalParam() {
+    //获取当前包路径
+    string package_path = ros::package::getPath("force_bridge");
+    string configFile_path=package_path+"/config/forceImp.yaml";
+    YAML::Node yaml_node=YAML::LoadFile(configFile_path);
+    //参数解析
+    yamlParameter_forceScale=yaml_node["parameters"]["revForceScale"].as<vector<double >>();
+    if (yamlParameter_forceScale.size()!=3){
+        return -1;
+    }
+    yamlParameter_forceDrection=yaml_node["parameters"]["ForceDrectionEnable"].as<vector<bool >>();
+    if (yamlParameter_forceScale.size()!=3){
+        return -2;
+    }
     return 0;
 }
 
@@ -187,29 +207,22 @@ bool forceService::impedenceCloseCB(std_srvs::SetBool::Request &req, std_srvs::S
 }
 
 void forceService::forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr &msg) {
-    currentForce[0] = msg->force.x * 0.08 - bias_force[0];
-    currentForce[1] = -msg->force.y * 0.08 - bias_force[1];
-    currentForce[2] = -msg->force.z * 0.088 - bias_force[2]; // 605 luo
+    currentForce[0] = msg->force.x * yamlParameter_forceScale[0] ;
+    currentForce[1] = -msg->force.y * yamlParameter_forceScale[1];
+    currentForce[2] = -msg->force.z * yamlParameter_forceScale[2];
     currentForce[3] = 0;
     currentForce[4] = 0;
-    currentForce[5] = 0;
-    if(getForce== false){
-        getForce = true;
-        bias_force=currentForce;
-    }
+    currentForce[5] = 0;msg->torque.x
 }
 
 void forceService::forceCallbackZX(const geometry_msgs::Wrench_<allocator<void>>::ConstPtr &msg) {
-    currentForce[0] = msg->force.z * 0.08 - bias_force[0];
-    currentForce[1] = -msg->force.y * 0.08 - bias_force[1];
-    currentForce[2] = msg->force.x * 0.082 - bias_force[2]; // 605 luo
+    currentForce[0] = msg->force.z * yamlParameter_forceScale[0];
+    currentForce[1] = -msg->force.y * yamlParameter_forceScale[1];
+    currentForce[2] = msg->force.x * yamlParameter_forceScale[2];
     currentForce[3] = 0;
     currentForce[4] = 0;
     currentForce[5] = 0;
-    if(getForce== false){
-        getForce = true;
-        bias_force=currentForce;
-    }
+
 }
 
 
@@ -263,6 +276,7 @@ void forceService::getCurrentPose(geometry_msgs::Pose& Pose) {
 }
 
 int forceService::computeImpedence(std::vector<double> &force, std::vector<double> &outJoint,geometry_msgs::Pose &outPose) {
+    assert(force.size() == 6);
     //1.获取当前位姿
     geometry_msgs::Pose current_Pose;
     getCurrentPose(current_Pose);
@@ -272,17 +286,18 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     std::fill(Xa.begin(), Xa.begin()+6, 0);
     vector<double > tmp_pose{0,0,0,0,0,0};
     force_plugin->setInputRobotPose(tmp_pose);
+
     force_plugin->setInputForceBias(force);
     int i = force_plugin->compute();
     int result = force_plugin->getResult(Xa);
+    cout<<"计算得偏移量X_offset: "<<Xa[0]<<endl;
+    cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
+    cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
     //3.位姿补偿计算
     geometry_msgs::Pose computePose = current_Pose;
     computePose.position.x+=Xa[0];
     computePose.position.y+=Xa[1];
     computePose.position.z+=Xa[2];
-    cout<<"计算得偏移量X_offset: "<<Xa[0]<<endl;
-    cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
-    cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
 
     //4.位姿转关节角
     if(!MG.kinematic_state->setFromIK(MG.joint_model_group, computePose, MG.endlinkName, 10, 0.1)){
@@ -295,6 +310,25 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     outJoint =  std::move(joint_values);
     cout<<"ros_ok"<<"computeImpedence end"<<endl;
     return 0;
+}
+
+void forceService::forceDataDeal(const vector<double >& original_force,vector<double >& deal_force) {
+    assert(original_force.size() == 6);
+    vector<double > tmp_deal_force(6);
+    std::fill(tmp_deal_force.begin(),tmp_deal_force.begin()+6,0);
+
+    if(!flag_SetForceBias){
+        bias_force=currentForce;
+        flag_SetForceBias=true;
+    }
+
+    //只管X,Y,Z三个方向力矩
+    for (int i = 0; i <3; ++i) {
+        if(yamlParameter_forceDrection[i]){
+            tmp_deal_force[i]=original_force[i]-bias_force[i];
+        }
+    }
+    deal_force=tmp_deal_force;
 }
 
 

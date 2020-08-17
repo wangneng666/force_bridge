@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include "ros/ros.h"
+#include "ros/package.h"
 #include "force/forcePluginAggre.h"
 #include "matrixUtily.h"
 #include "moveit/move_group_interface/move_group_interface.h"
@@ -17,6 +18,7 @@
 #include "memory"
 #include <eigen_conversions/eigen_msg.h>
 #include <tf/LinearMath/Quaternion.h>
+#include "yaml-cpp/yaml.h"
 
 #include "std_msgs/Bool.h"
 #include "std_srvs/SetBool.h"
@@ -24,6 +26,8 @@
 #include "industrial_msgs/RobotStatus.h"
 
 using namespace std;
+
+enum ImpedenceDirection{};
 
 
 struct MoveGroup{
@@ -47,13 +51,16 @@ private:
     MoveGroup MG;
 
     bool isSim ;
+    bool XZReverseDirect;
+
     bool is_stop ;
     bool is_running ;
-    vector<double> currentForce, bias_force;
+//    atomic<vector<double >> currentForce,bias_force;
+    vector<double > currentForce,bias_force;
+    vector<double > yamlParameter_forceScale;
+    vector<bool > yamlParameter_forceDrection;
 
-    bool XZReverseDirect;
-    geometry_msgs::Pose SPose;
-    atomic<bool> getForce,startPosOK ,robotStartStatus,robot_servo_status,ready_exit;
+    atomic<bool> getForce ,flag_SetForceBias, robotStartStatus,robot_servo_status,ready_exit;
     //ros变量
     ros::NodeHandle* Node;
     ros::Publisher  joint_state_pub ;
@@ -110,6 +117,8 @@ public:
      * @return
      */
     int updateParam();
+
+    void forceDataDeal(const vector<double >& original_force,vector<double >& deal_force);
 
     /***
      * 设置阻抗算法的输入传感器来源

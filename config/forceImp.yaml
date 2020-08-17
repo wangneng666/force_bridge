@@ -1,0 +1,7 @@
+parameters:
+  # 接受力矩传感器数据并进行缩放 force_x ,force_y,force_z
+  revForceScale: [0.0008,0.0008,0.0008]
+  # 阻抗方向使能 笛卡尔X,Y,Z方向
+#  ForceDrectionEnable: [true,true,true]
+  ForceDrectionEnable: [false,false,true]
+

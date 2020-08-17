@@ -9,7 +9,6 @@ using namespace std;
 
 //服务回调函数 //设置阻抗随动方向
 bool motionCoorSetCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res){
-
     res.success=true;
     return true;
 }
