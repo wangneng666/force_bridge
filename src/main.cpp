@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 
     ros::init(argc, argv, "force_bridge");
     ros::NodeHandle n;
-    ros::AsyncSpinner as(1);
+    ros::AsyncSpinner as(3);
     as.start();
 
     forceService fb(&n);

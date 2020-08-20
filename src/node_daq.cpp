@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     ROS_INFO_STREAM("sensor begin start");
 
     bool flag=false;
-    double value=2.0;
+    double value=10.0;
     int time_count=0;
     while (ros::ok()){
         time_count++;

@@ -38,15 +38,6 @@ int forceService::initParam() {
     if(readLocalParam()!=0){
         return -1;
     }
-//    MG.groupName="arm";
-//    MG.endlinkName="link6";
-//    isSim= false;
-//    XZReverseDirect=false;
-    //阻抗插件初始化
-    if(force_plugin->setForcePlugin("hsImpenderrForce", "1", "")!=0){
-        return -2;
-    }
-    cout<<force_plugin->getName()<<endl;
 
     //变量初始化
     flag_SetForceBias= false;
@@ -68,6 +59,7 @@ int forceService::initParam() {
     else
         force_sub = Node->subscribe("/daq_data", 1, &forceService::forceCallbackZX, this);
 
+    force_algorithmChange_server = Node->advertiseService("force_bridge/force_algorithm", &forceService::force_algorithmChangeCB,this);
     impedenceStart_server = Node->advertiseService("force_bridge/impedenceStart", &forceService::impedenceStartCB,this);
     impedenceClose_server = Node->advertiseService("force_bridge/impedenceClose", &forceService::impedenceCloseCB,this);
     ROS_INFO_STREAM("--------initParam over------------");
@@ -81,6 +73,13 @@ int forceService::StartImpedenceCtl() {
     ROS_INFO_STREAM("impedanceStartControl strating ! ");
     is_running=true;
     is_stop= false;
+    //阻抗插件初始化
+    cout<<"algorithm_name: "<<yamlPara_algorithm_name<<endl;
+    if(force_plugin->setForcePlugin(yamlPara_algorithm_name, "1", "")!=0){
+        return -1;
+    }
+    //设置阻抗算法参数
+    force_plugin->setParameters(&yamlPara_Stiffness[0],&yamlPara_Damping[0],&yamlPara_Mass[0]);
     //循环前发布一次起始关节角
     vector<double> startPos = MG.move_group->getCurrentJointValues();
     MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, startPos);
@@ -110,7 +109,7 @@ int forceService::StartImpedenceCtl() {
         Pose_state_pub.publish(outPose);
         //执行运动
         publishPose(outJoint);
-        boost::this_thread::sleep_until( start +boost::chrono::milliseconds(40));
+        boost::this_thread::sleep_until( start +boost::chrono::milliseconds(PUBPOSE_HZ));
         ROS_INFO_STREAM("<---------------------------------------------------->");
     }
     is_running= false;
@@ -124,7 +123,6 @@ int forceService::StopImpedenceCtl() {
     while (is_running&&(time_count<10)){
         sleep(1);
         time_count++;
-
     }
     return 0;
 }
@@ -136,14 +134,29 @@ int forceService::readLocalParam() {
     string configFile_path=package_path+"/config/forceImp.yaml";
     YAML::Node yaml_node=YAML::LoadFile(configFile_path);
     //参数解析
-    yamlParameter_forceScale=yaml_node["parameters"]["revForceScale"].as<vector<double >>();
-    if (yamlParameter_forceScale.size()!=3){
+    yamlPara_forceScale=yaml_node["parameters"]["revForceScale"].as<vector<double >>();
+    if (yamlPara_forceScale.size()!=3){
         return -1;
     }
-    yamlParameter_forceDrection=yaml_node["parameters"]["ForceDrectionEnable"].as<vector<bool >>();
-    if (yamlParameter_forceScale.size()!=3){
+    yamlPara_forceDrection=yaml_node["parameters"]["forceDrectionEnable"].as<vector<bool >>();
+    if (yamlPara_forceScale.size()!=3){
         return -2;
     }
+    safetyAreaScope.resize(3);
+    safetyAreaScope[0]=yaml_node["parameters"]["safetyAreaScope_x"].as<vector<double >>();
+    safetyAreaScope[1]=yaml_node["parameters"]["safetyAreaScope_y"].as<vector<double >>();
+    safetyAreaScope[2]=yaml_node["parameters"]["safetyAreaScope_z"].as<vector<double >>();
+
+    yamlPara_Stiffness=yaml_node["parameters"]["Stiffness"].as<vector<double >>();
+    yamlPara_Damping=yaml_node["parameters"]["Damping"].as<vector<double >>();
+    yamlPara_Mass=yaml_node["parameters"]["Mass"].as<vector<double >>();
+
+    yamlPara_algorithm_name=yaml_node["parameters"]["algorithm_name"].as<string >();
+//    cout<<"algorithm_name: "<<yamlPara_algorithm_name<<endl;
+
+    yamlPara_MaxVel_x=yaml_node["parameters"]["MaxVel_x"].as<double >();
+    yamlPara_MaxVel_y=yaml_node["parameters"]["MaxVel_y"].as<double >();
+    yamlPara_MaxVel_z=yaml_node["parameters"]["MaxVel_z"].as<double >();
     return 0;
 }
 
@@ -208,18 +221,18 @@ bool forceService::impedenceCloseCB(std_srvs::SetBool::Request &req, std_srvs::S
 }
 
 void forceService::forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr &msg) {
-    currentForce[0] = msg->force.x * yamlParameter_forceScale[0] ;
-    currentForce[1] = -msg->force.y * yamlParameter_forceScale[1];
-    currentForce[2] = -msg->force.z * yamlParameter_forceScale[2];
+    currentForce[0] = msg->force.x * yamlPara_forceScale[0] ;
+    currentForce[1] = -msg->force.y * yamlPara_forceScale[1];
+    currentForce[2] = -msg->force.z * yamlPara_forceScale[2];
     currentForce[3] = 0;
     currentForce[4] = 0;
     currentForce[5] = 0;
 }
 
 void forceService::forceCallbackZX(const geometry_msgs::Wrench_<allocator<void>>::ConstPtr &msg) {
-    currentForce[0] = msg->force.z * yamlParameter_forceScale[0];
-    currentForce[1] = -msg->force.y * yamlParameter_forceScale[1];
-    currentForce[2] = msg->force.x * yamlParameter_forceScale[2];
+    currentForce[0] = msg->force.z * yamlPara_forceScale[0];
+    currentForce[1] = -msg->force.y * yamlPara_forceScale[1];
+    currentForce[2] = msg->force.x * yamlPara_forceScale[2];
     currentForce[3] = 0;
     currentForce[4] = 0;
     currentForce[5] = 0;
@@ -308,7 +321,6 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     std::vector<double> joint_values;
     MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
     outJoint =  std::move(joint_values);
-    cout<<"ros_ok"<<"computeImpedence end"<<endl;
     return 0;
 }
 
@@ -324,10 +336,18 @@ void forceService::forceDataDeal(const vector<double >& original_force,vector<do
 
     //只管X,Y,Z三个方向力矩
     for (int i = 0; i <3; ++i) {
-        if(yamlParameter_forceDrection[i]){
+        if(yamlPara_forceDrection[i]){
             tmp_deal_force[i]=original_force[i]-bias_force[i];
         }
     }
     deal_force=tmp_deal_force;
 }
+
+bool forceService::force_algorithmChangeCB(hirop_msgs::force_algorithmChange::Request &req,
+                                           hirop_msgs::force_algorithmChange::Response &res) {
+    yamlPara_algorithm_name=req.algorithm_name;
+    res.is_success=true;
+    return true;
+}
+
 

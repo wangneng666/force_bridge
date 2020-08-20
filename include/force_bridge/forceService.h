@@ -24,11 +24,10 @@
 #include "std_srvs/SetBool.h"
 #include "std_msgs/Int16.h"
 #include "industrial_msgs/RobotStatus.h"
-
+#include "hirop_msgs/force_algorithmChange.h"
 using namespace std;
 
-enum ImpedenceDirection{};
-
+#define PUBPOSE_HZ 40
 
 struct MoveGroup{
     moveit::planning_interface::MoveGroupInterface *move_group;
@@ -55,16 +54,27 @@ private:
 
     bool is_stop ;
     bool is_running ;
-    vector<double > currentForce,bias_force;
-    vector<double > yamlParameter_forceScale;
-    vector<bool > yamlParameter_forceDrection;
-    atomic<bool> flag_SetForceBias,robot_servo_status;
+    bool flag_SetForceBias;
+    atomic<bool> robot_servo_status;
+    vector<double > currentForce,bias_force; //当前力传感器数据,力传感器零点偏差
+    //yaml参数保存
+    string yamlPara_algorithm_name; //算法插件名称
+    double yamlPara_MaxVel_x;
+    double yamlPara_MaxVel_y;
+    double yamlPara_MaxVel_z;
+    vector<double > yamlPara_forceScale;//力传感器数据缩放系数
+    vector<bool > yamlPara_forceDrection;//力控方向系数
+    vector<double > yamlPara_Stiffness;//刚性
+    vector<double > yamlPara_Damping;//阻尼
+    vector<double > yamlPara_Mass;//质量
+    vector<vector<double >> safetyAreaScope; //划定工作区域
     //ros变量
     ros::NodeHandle* Node;
     ros::Publisher  joint_state_pub ;
     ros::Publisher Pose_state_pub;
     ros::ServiceServer impedenceStart_server;
     ros::ServiceServer impedenceClose_server;
+    ros::ServiceServer force_algorithmChange_server;
     ros::Subscriber   force_sub, robot_status_sub;
 
 public:
@@ -85,6 +95,7 @@ public:
      */
     bool impedenceCloseCB(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
+    bool force_algorithmChangeCB(hirop_msgs::force_algorithmChange::Request &req, hirop_msgs::force_algorithmChange::Response &res);
 
     /***
      * 初始化参数
@@ -135,6 +146,7 @@ public:
     //接收传感器数据
     void forceCallbackZX(const geometry_msgs::Wrench::ConstPtr& msg);
 
+    //接收传感器数据 xz方向输入力矩换向
     void forceCallbackXZ(const geometry_msgs::Wrench::ConstPtr& msg);
 
     //发布关节坐标执行运动

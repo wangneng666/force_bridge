@@ -1,0 +1,4 @@
+string algorithm_name
+---
+bool is_success
+string info
