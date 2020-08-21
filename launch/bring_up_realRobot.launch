@@ -1,0 +1,13 @@
+<launch>
+<!--     <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher">
+    <param name="use_gui" value="False"/>
+    </node> -->
+
+    <node pkg="force_bridge" type="force_bridge" name="force_bridge" output="screen" >
+    <param name="group_name" type="str" value="arm"/>
+    <param name="endlinkName" type="str" value="link6"/>
+    <param name="isSim" value="False"/>
+    <param name="XZReverseDirect" value="True"/>
+    </node>
+
+</launch>

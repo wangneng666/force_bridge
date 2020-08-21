@@ -143,9 +143,9 @@ int forceService::readLocalParam() {
         return -2;
     }
     safetyAreaScope.resize(3);
-    safetyAreaScope[0]=yaml_node["parameters"]["safetyAreaScope_x"].as<vector<double >>();
-    safetyAreaScope[1]=yaml_node["parameters"]["safetyAreaScope_y"].as<vector<double >>();
-    safetyAreaScope[2]=yaml_node["parameters"]["safetyAreaScope_z"].as<vector<double >>();
+    safetyAreaScope[0]=yaml_node["parameters"]["Limit_safetyAreaScope_x"].as<vector<double >>();
+    safetyAreaScope[1]=yaml_node["parameters"]["Limit_safetyAreaScope_y"].as<vector<double >>();
+    safetyAreaScope[2]=yaml_node["parameters"]["Limit_safetyAreaScope_z"].as<vector<double >>();
 
     yamlPara_Stiffness=yaml_node["parameters"]["Stiffness"].as<vector<double >>();
     yamlPara_Damping=yaml_node["parameters"]["Damping"].as<vector<double >>();
@@ -154,9 +154,9 @@ int forceService::readLocalParam() {
     yamlPara_algorithm_name=yaml_node["parameters"]["algorithm_name"].as<string >();
 //    cout<<"algorithm_name: "<<yamlPara_algorithm_name<<endl;
 
-    yamlPara_MaxVel_x=yaml_node["parameters"]["MaxVel_x"].as<double >();
-    yamlPara_MaxVel_y=yaml_node["parameters"]["MaxVel_y"].as<double >();
-    yamlPara_MaxVel_z=yaml_node["parameters"]["MaxVel_z"].as<double >();
+     yamlPara_MaxVel_x=yaml_node["parameters"]["MaxVel_x"].as<double >();
+     yamlPara_MaxVel_y=yaml_node["parameters"]["MaxVel_y"].as<double >();
+     yamlPara_MaxVel_z=yaml_node["parameters"]["MaxVel_z"].as<double >();
     return 0;
 }
 
@@ -306,6 +306,25 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     cout<<"计算得偏移量X_offset: "<<Xa[0]<<endl;
     cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
     cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
+    if(Xa[0]>=yamlPara_MaxVel_x){
+        Xa[0]=yamlPara_MaxVel_x;
+    }else if(Xa[0]<= -1*yamlPara_MaxVel_x){
+        Xa[0]=-1*yamlPara_MaxVel_x;
+    }
+
+    if(Xa[1]>=yamlPara_MaxVel_y){
+        Xa[1]=yamlPara_MaxVel_y;
+    }else if(Xa[1]<= -1*yamlPara_MaxVel_y){
+        Xa[1]=-1*yamlPara_MaxVel_y;
+    }
+
+    if(Xa[2]>=yamlPara_MaxVel_z){
+        Xa[2]=yamlPara_MaxVel_z;
+    }else if(Xa[2]<= -1*yamlPara_MaxVel_z){
+        Xa[2]=-1*yamlPara_MaxVel_z;
+    }
+
+
     //3.位姿补偿计算
     geometry_msgs::Pose computePose = current_Pose;
     computePose.position.x+=Xa[0];
