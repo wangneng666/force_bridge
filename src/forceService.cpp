@@ -346,44 +346,50 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
     cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
 
-    //3.位姿补偿计算
-    geometry_msgs::Pose computePose = current_Pose;
-    computePose.position.x+=Xa[0];
-    computePose.position.y+=Xa[1];
-    computePose.position.z+=Xa[2];
-
-    //4.位姿转关节角
-    if(!MG.kinematic_state->setFromIK(MG.joint_model_group, computePose, MG.endlinkName, 10, 0.1)){
-        ROS_ERROR( "IK ERR " );
-        return -1;
-    }
-
-    // 返回计算后的关节角
-    std::vector<double> joint_values;
-    MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
-    //关节角偏移量
-    vector<double > curJoint =MG.move_group->getCurrentJointValues();
+    bool isstop=false;
+    int count=0;
     double diff=0;
     bool flag=false;
-    for (size_t i = 0; i < 6; i++)
+    while(!isstop)
     {
-        diff=(joint_values[i]-curJoint[i])*180/M_PI;
-       cout<<"计算偏移量joint"<<i<<"偏差角度值: "<<setprecision(2)<<diff<<endl;
-       if((diff<-0.6)||(diff>0.6))
-       {
-            flag=true;
-       }
-    }
+        count++;
+        //3.位姿补偿计算
+        geometry_msgs::Pose computePose = current_Pose;
+        computePose.position.x+=Xa[0];
+        computePose.position.y+=Xa[1];
+        computePose.position.z+=Xa[2];
 
-    if(!flag)
-    {
-        outJoint =  std::move(joint_values);
-    }else
-    {
-        cout<<"发送当前坐标"<<endl;
-        outJoint =  std::move(curJoint);
+        //4.位姿转关节角
+        if(!MG.kinematic_state->setFromIK(MG.joint_model_group, computePose, MG.endlinkName, 10, 0.1)){
+            ROS_ERROR( "IK ERR " );
+            return -1;
+        }
+
+        // 返回计算后的关节角
+        std::vector<double> joint_values;
+        MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
+        //关节角偏移量
+        vector<double > curJoint =MG.move_group->getCurrentJointValues();
+
+        for (size_t i = 0; i < 6; i++)
+        {
+            diff=(joint_values[i]-curJoint[i])*180/M_PI;
+           cout<<"计算偏移量joint"<<i<<"偏差角度值: "<<setprecision(2)<<diff<<endl;
+           if((diff<-0.6)||(diff>0.6))
+           {
+               flag=true;
+           }
+        }
+        if(flag){
+            Xa[0]=Xa[0]*0.5;
+            Xa[1]=Xa[1]*0.5;
+            Xa[2]=Xa[2]*0.5;
+        }
+        //判断退出
+        if((!flag)||(count>10)){
+            isstop=true;
+        }
     }
-    
     return 0;
 }
 
