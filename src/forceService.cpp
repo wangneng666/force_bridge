@@ -85,6 +85,7 @@ int forceService::StartImpedenceCtl() {
     MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, startPos);
     if(isSim)
     {
+        robot_servo_status=true;
         publishPose(startPos);
     }
     else
@@ -271,8 +272,29 @@ void forceService::publishPose(std::vector<double> &joint_Pose) {
         compute_robot_state.name[i]=MG.joint_names[i+1];
     }
     compute_robot_state.position = joint_Pose;
-    ROS_INFO_STREAM(compute_robot_state);
+    //ROS_INFO_STREAM(compute_robot_state);
+    //运动点打印
+    vector<double> tmp(6);
+    for (size_t i = 0; i < 6; i++)
+    {
+        tmp[i]=compute_robot_state.position[i]*180/M_PI;
+        cout<<"点位执行关节"<<i<<"角度值: "<<compute_robot_state.position[i]*180/M_PI<<endl;;
+    }
+    // if(tmp[1]<=-72){
+    //     cout<<"轴2非安全点"<<endl;
+    //     compute_robot_state.position[1]=(-72.0/180.0)*M_PI;
+    // }
+    // if(tmp[2]>=210){
+    //     cout<<"轴3非安全点"<<endl;
+    //     compute_robot_state.position[2]=(210.0/180.0)*M_PI;
+    // }
+    // if(tmp[4]<=-60){
+    //     cout<<"轴5非安全点"<<endl;
+    //     compute_robot_state.position[4]=(-60.0/180.0)*M_PI;
+    // }
+
     joint_state_pub.publish(compute_robot_state);
+    
 
 }
 
@@ -282,9 +304,7 @@ void forceService::getCurrentPose(geometry_msgs::Pose& Pose) {
 //    vector<double> curPos = MG.move_group->getCurrentJointValues();
 //    cout<<"w2"<<endl;
 //    MG.kinematic_state->setJointGroupPositions( MG.joint_model_group, curPos);
-    cout<<"w3  "<<endl;
     const Eigen::Affine3d &end_effector_state =  MG.kinematic_state->getGlobalLinkTransform( MG.endlinkName);
-    cout<<"w4"<<endl;
     tf::poseEigenToMsg(end_effector_state, Pose);
 }
 
@@ -303,9 +323,7 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     force_plugin->setInputForceBias(force);
     int i = force_plugin->compute();
     int result = force_plugin->getResult(Xa);
-    cout<<"计算得偏移量X_offset: "<<Xa[0]<<endl;
-    cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
-    cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
+    //位移量控制
     if(Xa[0]>=yamlPara_MaxVel_x){
         Xa[0]=yamlPara_MaxVel_x;
     }else if(Xa[0]<= -1*yamlPara_MaxVel_x){
@@ -324,6 +342,9 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
         Xa[2]=-1*yamlPara_MaxVel_z;
     }
 
+    cout<<"计算得偏移量X_offset: "<<Xa[0]<<endl;
+    cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
+    cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
 
     //3.位姿补偿计算
     geometry_msgs::Pose computePose = current_Pose;
@@ -336,10 +357,33 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
         ROS_ERROR( "IK ERR " );
         return -1;
     }
+
     // 返回计算后的关节角
     std::vector<double> joint_values;
     MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
-    outJoint =  std::move(joint_values);
+    //关节角偏移量
+    vector<double > curJoint =MG.move_group->getCurrentJointValues();
+    double diff=0;
+    bool flag=false;
+    for (size_t i = 0; i < 6; i++)
+    {
+        diff=(joint_values[i]-curJoint[i])*180/M_PI;
+       cout<<"计算偏移量joint"<<i<<"偏差角度值: "<<setprecision(2)<<diff<<endl;
+       if((diff<-0.6)||(diff>0.6))
+       {
+            flag=true;
+       }
+    }
+
+    if(!flag)
+    {
+        outJoint =  std::move(joint_values);
+    }else
+    {
+        cout<<"发送当前坐标"<<endl;
+        outJoint =  std::move(curJoint);
+    }
+    
     return 0;
 }
 

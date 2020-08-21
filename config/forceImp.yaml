@@ -3,14 +3,14 @@ parameters:
   # 接受力矩传感器数据并进行缩放 force_x ,force_y,force_z
   revForceScale: [0.008,0.008,0.008]
   # 阻抗方向使能 笛卡尔X,Y,Z方向
-  forceDrectionEnable: [false,false,true]
+  forceDrectionEnable: [true,false,true]
   # 阻抗算法参数设置
   Stiffness: [60.0, 30.0, 30.0, 30.0, 30.0, 30.0] #刚性系数
   Damping: [5., 5., 5., 5., 5., 5.] #阻尼系数
   Mass: [1.6, 1.6, 3.2, 0.4, 0.3, 0.2] #质量系数
   #XYZ方向最大移动(0.004 米/25ms)或(0.16米/s)
-  MaxVel_x: 0.005
-  MaxVel_y: 0.005
+  MaxVel_x: 0.004
+  MaxVel_y: 0.004
   MaxVel_z: 0.004
   # 安全运动区域范围 (预留)
   Limit_safetyAreaScope_x: [-500,500]
