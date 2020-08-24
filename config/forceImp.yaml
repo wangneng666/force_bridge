@@ -5,13 +5,17 @@ parameters:
   # 阻抗方向使能 笛卡尔X,Y,Z方向
   forceDrectionEnable: [true,false,true]
   # 阻抗算法参数设置
+  # Stiffness: [60.0, 30.0, 30.0, 30.0, 30.0, 30.0] #刚性系数
+  # Damping: [5., 5., 5., 5., 5., 5.] #阻尼系数
+  # Mass: [1.6, 1.6, 3.2, 0.4, 0.3, 0.2] #质量系数
+
   Stiffness: [60.0, 30.0, 30.0, 30.0, 30.0, 30.0] #刚性系数
-  Damping: [5., 5., 5., 5., 5., 5.] #阻尼系数
+  Damping: [10., 10., 10., 10., 10., 10.] #阻尼系数
   Mass: [1.6, 1.6, 3.2, 0.4, 0.3, 0.2] #质量系数
   #XYZ方向最大移动(0.004 米/25ms)或(0.16米/s)
   MaxVel_x: 0.004
   MaxVel_y: 0.004
-  MaxVel_z: 0.004
+  MaxVel_z: 0.01
   # 安全运动区域范围 (预留)
   Limit_safetyAreaScope_x: [-500,500]
   Limit_safetyAreaScope_y: [-300,300]

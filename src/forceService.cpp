@@ -246,6 +246,7 @@ void forceService::robotStausCallback(const industrial_msgs::RobotStatusConstPtr
     if(msg->in_error.val != 0 || msg->drives_powered.val!=1 ){
         robot_servo_status = false;
         std::cout << "msg->in_motion.val : "<< std::to_string(msg->in_motion.val) << " msg->in_error.val: "<<  std::to_string(msg->in_error.val)<<std::endl;
+        robot_status_sub.shutdown();
     }else {
         robot_servo_status = true;
     }
@@ -346,50 +347,38 @@ int forceService::computeImpedence(std::vector<double> &force, std::vector<doubl
     cout<<"计算得偏移量y_offset: "<<Xa[1]<<endl;
     cout<<"计算得偏移量z_offset: "<<Xa[2]<<endl;
 
-    bool isstop=false;
-    int count=0;
     double diff=0;
-    bool flag=false;
-    while(!isstop)
-    {
-        count++;
-        //3.位姿补偿计算
-        geometry_msgs::Pose computePose = current_Pose;
-        computePose.position.x+=Xa[0];
-        computePose.position.y+=Xa[1];
-        computePose.position.z+=Xa[2];
+    std::vector<double> joint_values;
+    vector<double > curJoint;
+    geometry_msgs::Pose computePose;
 
-        //4.位姿转关节角
-        if(!MG.kinematic_state->setFromIK(MG.joint_model_group, computePose, MG.endlinkName, 10, 0.1)){
-            ROS_ERROR( "IK ERR " );
-            return -1;
-        }
+    //3.位姿补偿计算
+    computePose = current_Pose;
+    computePose.position.x+=Xa[0];
+    computePose.position.y+=Xa[1];
+    computePose.position.z+=Xa[2];
 
-        // 返回计算后的关节角
-        std::vector<double> joint_values;
-        MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
-        //关节角偏移量
-        vector<double > curJoint =MG.move_group->getCurrentJointValues();
-
-        for (size_t i = 0; i < 6; i++)
-        {
-            diff=(joint_values[i]-curJoint[i])*180/M_PI;
-           cout<<"计算偏移量joint"<<i<<"偏差角度值: "<<setprecision(2)<<diff<<endl;
-           if((diff<-0.6)||(diff>0.6))
-           {
-               flag=true;
-           }
-        }
-        if(flag){
-            Xa[0]=Xa[0]*0.5;
-            Xa[1]=Xa[1]*0.5;
-            Xa[2]=Xa[2]*0.5;
-        }
-        //判断退出
-        if((!flag)||(count>10)){
-            isstop=true;
-        }
+    //4.位姿转关节角
+    if(!MG.kinematic_state->setFromIK(MG.joint_model_group, computePose, MG.endlinkName, 10, 0.1)){
+        ROS_ERROR( "IK ERR " );
+        return -1;
     }
+
+    // 返回计算后的关节角
+    MG.kinematic_state->copyJointGroupPositions(MG.joint_model_group, joint_values);
+    //关节角偏移量
+    // curJoint =MG.move_group->getCurrentJointValues();
+    // for (size_t i = 0; i < 6; i++)
+    // {
+    //     diff=(joint_values[i]-curJoint[i])*180/M_PI;
+    //     cout<<"计算偏移量joint"<<i<<"偏差角度值: "<<setprecision(2)<<diff<<endl;
+    //     if((diff<-0.6)||(diff>0.6))
+    //     {
+    //         flag=true;
+    //     }
+    // }
+
+    outJoint =  std::move(joint_values);
     return 0;
 }
 
@@ -418,5 +407,4 @@ bool forceService::force_algorithmChangeCB(hirop_msgs::force_algorithmChange::Re
     res.is_success=true;
     return true;
 }
-
 
